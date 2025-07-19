@@ -74,6 +74,8 @@ export default function Dashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'meetings' | 'summaries' | 'analytics'>('meetings')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showJoinModal, setShowJoinModal] = useState(false)
+  const [joinRoomId, setJoinRoomId] = useState('')
 
   useEffect(() => {
     if (!loading && !employee) {
@@ -114,6 +116,20 @@ export default function Dashboard() {
       cancelled: 'bg-red-100 text-red-700'
     }
     return colors[status as keyof typeof colors] || colors.scheduled
+  }
+
+  const handleQuickMeeting = () => {
+    // Generar un ID único para la reunión rápida
+    const meetingId = `quick-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    
+    // Redirigir a la página de video con el ID generado
+    router.push(`/video-room/${meetingId}`)
+  }
+
+  const handleJoinMeeting = () => {
+    if (joinRoomId.trim()) {
+      router.push(`/video-room/${joinRoomId.trim()}`)
+    }
   }
 
   return (
@@ -236,6 +252,26 @@ export default function Dashboard() {
             <Plus className="w-4 h-4" />
             <span className="sm:hidden">Nueva</span>
             <span className="hidden sm:inline">Nueva Reunión</span>
+          </Button>
+
+          {/* Botón para reunión rápida */}
+          <Button 
+            onClick={handleQuickMeeting}
+            className="flex items-center gap-2 bg-blue-500/80 hover:bg-blue-600/80 text-white shadow-lg w-full sm:w-auto backdrop-blur-md"
+          >
+            <Video className="w-4 h-4" />
+            <span className="sm:hidden">Reunión</span>
+            <span className="hidden sm:inline">Reunión Rápida</span>
+          </Button>
+
+          {/* Botón para unirse a reunión */}
+          <Button 
+            onClick={() => setShowJoinModal(true)}
+            className="flex items-center gap-2 bg-purple-500/80 hover:bg-purple-600/80 text-white shadow-lg w-full sm:w-auto backdrop-blur-md"
+          >
+            <Users className="w-4 h-4" />
+            <span className="sm:hidden">Unirse</span>
+            <span className="hidden sm:inline">Unirse a Reunión</span>
           </Button>
         </div>
 
@@ -410,6 +446,60 @@ export default function Dashboard() {
               >
                 Cerrar
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal para unirse a reunión */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg mx-4 bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
+            <CardHeader className="border-b border-white/20">
+              <CardTitle className="text-white">Unirse a Reunión</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="text-center mb-4">
+                <Users className="w-12 h-12 text-white/60 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">Ingrese el ID de la Reunión</h3>
+                <p className="text-white/80 text-sm">
+                  Introduzca el código de reunión que le compartieron
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={joinRoomId}
+                  onChange={(e) => setJoinRoomId(e.target.value)}
+                  placeholder="Ej: quick-1234567890-abc123"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-md"
+                />
+                
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => {
+                      setShowJoinModal(false)
+                      setJoinRoomId('')
+                    }}
+                    variant="outline"
+                    className="flex-1 bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-md"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      handleJoinMeeting()
+                      setShowJoinModal(false)
+                      setJoinRoomId('')
+                    }}
+                    disabled={!joinRoomId.trim()}
+                    className="flex-1 bg-purple-500/80 hover:bg-purple-600/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Unirse
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
