@@ -1,18 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { 
   StreamVideo, 
   StreamCall,
+  StreamTheme,
   SpeakerLayout,
+  PaginatedGridLayout,
   CallControls,
   CallingState,
-  useCallStateHooks
+  useCallStateHooks,
 } from '@stream-io/video-react-sdk'
 import '@stream-io/video-react-sdk/dist/css/styles.css'
+import '@/styles/video-controls.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Video, Phone, AlertCircle, Copy } from 'lucide-react'
+import { Loader2, Video, AlertCircle, Copy, Users } from 'lucide-react'
 import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
 
 interface VideoRoomProps {
@@ -22,14 +25,24 @@ interface VideoRoomProps {
 
 // Componente interno que maneja el estado de la llamada
 function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: string }) {
-  const { useCallCallingState, useParticipants } = useCallStateHooks()
+  const { 
+    useCallCallingState, 
+    useParticipants,
+  } = useCallStateHooks()
   
   const callingState = useCallCallingState()
   const participants = useParticipants()
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId)
-    alert('ID de reunión copiado al portapapeles')
+    // Mejor UX: mostrar una notificación temporal en lugar de alert
+    if (typeof window !== 'undefined') {
+      const originalTitle = document.title
+      document.title = '✓ ID copiado'
+      setTimeout(() => {
+        document.title = originalTitle
+      }, 2000)
+    }
   }
 
   if (callingState === CallingState.JOINING) {
@@ -48,50 +61,88 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
     )
   }
 
+  if (callingState === CallingState.RECONNECTING) {
+    return (
+      <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
+        <CardContent className="p-8 text-center">
+          <Loader2 className="w-12 h-12 text-yellow-400 animate-spin mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Reconectando...
+          </h3>
+          <p className="text-white/80">
+            Reestableciendo conexión
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (callingState === CallingState.JOINED) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-4 sm:p-0">
         {/* Información de la llamada */}
         <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <CardTitle className="text-white flex items-center gap-2">
-                <Video className="w-5 h-5" />
-                Reunión en Curso ({participants.length} participantes)
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center justify-between">
+              <CardTitle className="text-white flex items-center gap-2 text-lg sm:text-xl">
+                <Video className="w-5 h-5 flex-shrink-0" />
+                <span className="truncate">
+                  Reunión en Curso ({participants.length})
+                </span>
               </CardTitle>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                <span className="text-white/80 text-sm">ID: {roomId}</span>
+                <div className="text-white/80 text-sm">
+                  <span className="hidden sm:inline">ID: </span>
+                  <span className="font-mono">{roomId}</span>
+                </div>
                 <Button
                   onClick={copyRoomId}
                   variant="outline"
                   size="sm"
-                  className="bg-white/10 text-white border-white/30 hover:bg-white/20 text-xs h-8"
+                  className="bg-white/10 text-white border-white/30 hover:bg-white/20 text-xs h-8 self-start sm:self-auto"
                 >
                   <Copy className="w-3 h-3 mr-1" />
-                  Copiar
+                  <span className="hidden sm:inline">Copiar</span>
+                  <span className="sm:hidden">ID</span>
                 </Button>
               </div>
             </div>
           </CardHeader>
         </Card>
 
-        {/* Layout de video */}
-        <div className="bg-slate-900 rounded-lg overflow-hidden" style={{ minHeight: '600px' }}>
-          <SpeakerLayout participantsBarPosition="bottom" />
+        {/* Layout de video principal */}
+        <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] max-h-[70vh] relative">
+          {/* Usar diferentes layouts según el tamaño de pantalla */}
+          <div className="block sm:hidden h-full">
+            {/* Móvil: SpeakerLayout funciona perfecto */}
+            <SpeakerLayout 
+              participantsBarPosition="bottom"
+              participantsBarLimit={10}
+            />
+          </div>
+          <div className="hidden sm:block h-full">
+            {/* Desktop: PaginatedGridLayout muestra todos los participantes */}
+            <PaginatedGridLayout 
+              groupSize={4}
+            />
+          </div>
         </div>
 
-        {/* Controles de llamada */}
-        <div className="flex justify-center">
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-lg p-4">
-            <CallControls />
-            <Button
-              onClick={onLeave}
-              variant="outline"
-              className="bg-red-500/20 text-red-300 border-red-400/30 hover:bg-red-500/30"
-            >
-              <Phone className="w-4 h-4 mr-2" />
-              Salir
-            </Button>
+        {/* Controles de llamada usando el componente oficial */}
+        <div className="flex justify-center px-4">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 shadow-lg">
+            {/* Usar el componente oficial CallControls que maneja todo automáticamente */}
+            <CallControls onLeave={onLeave} />
+            
+            {/* Información de participantes */}
+            <div className="flex items-center justify-center gap-2 mt-4 sm:mt-2">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg">
+                <Users className="w-4 h-4 text-white/80" />
+                <span className="text-white/80 text-sm">
+                  {participants.length} {participants.length === 1 ? 'participante' : 'participantes'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -106,6 +157,9 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
         <h3 className="text-lg font-semibold text-white mb-2">
           Estado: {callingState}
         </h3>
+        <p className="text-white/80 mb-4">
+          Estado inesperado de la llamada
+        </p>
         <Button onClick={onLeave} variant="outline" className="bg-white/20 text-white border-white/30">
           Regresar
         </Button>
@@ -119,21 +173,24 @@ export default function VideoRoom({ roomId, onLeave }: VideoRoomProps) {
   const [call, setCall] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const [joining, setJoining] = useState(false)
 
+  // Crear y unirse a la llamada cuando el cliente esté listo
   useEffect(() => {
-    if (!client) return
+    if (!client || !roomId) return
 
     let currentCall: any = null // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const setupCall = async () => {
       try {
         setJoining(true)
+        console.log('Configurando llamada con ID:', roomId)
         
-        // Crear o unirse a la llamada
+        // Crear la llamada
         currentCall = client.call('default', roomId)
         
         // Unirse a la llamada (crear si no existe)
         await currentCall.join({ create: true })
         
+        console.log('Unido a la llamada exitosamente')
         setCall(currentCall)
       } catch (err) {
         console.error('Error uniéndose a la llamada:', err)
@@ -150,25 +207,25 @@ export default function VideoRoom({ roomId, onLeave }: VideoRoomProps) {
     return () => {
       if (currentCall) {
         currentCall.leave().catch(() => {
-          // Ignorar errores al salir (ej: llamada ya terminada)
+          console.log('Call cleanup completed')
         })
       }
     }
   }, [client, roomId, onLeave])
 
   const handleLeave = async () => {
+    console.log('Saliendo de la llamada...')
     if (call) {
       try {
         await call.leave()
-      } catch (err) {
-        // Ignorar errores al salir (ej: llamada ya terminada)
+      } catch {
         console.log('Call already left or ended')
       }
     }
     onLeave()
   }
 
-  // Estados de carga
+  // Estados de carga y error
   if (loading || !client) {
     return (
       <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
@@ -228,6 +285,9 @@ export default function VideoRoom({ roomId, onLeave }: VideoRoomProps) {
           <h3 className="text-lg font-semibold text-white mb-2">
             No se pudo crear la llamada
           </h3>
+          <p className="text-white/80 mb-4">
+            Verifica tu conexión e intenta nuevamente
+          </p>
           <Button onClick={onLeave} variant="outline" className="bg-white/20 text-white border-white/30">
             Regresar
           </Button>
@@ -239,7 +299,9 @@ export default function VideoRoom({ roomId, onLeave }: VideoRoomProps) {
   return (
     <StreamVideo client={client}>
       <StreamCall call={call}>
-        <CallInterface onLeave={handleLeave} roomId={roomId} />
+        <StreamTheme>
+          <CallInterface onLeave={handleLeave} roomId={roomId} />
+        </StreamTheme>
       </StreamCall>
     </StreamVideo>
   )
