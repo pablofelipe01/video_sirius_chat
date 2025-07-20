@@ -111,7 +111,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
         </Card>
 
         {/* Layout de video principal */}
-        <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[500px] lg:h-[600px] max-h-[70vh] relative">
+        <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[600px] lg:h-[700px] xl:h-[750px] max-h-[80vh] relative">
           {/* Usar diferentes layouts según el tamaño de pantalla */}
           <div className="block sm:hidden h-full">
             {/* Móvil: SpeakerLayout funciona perfecto */}
