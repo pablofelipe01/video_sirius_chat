@@ -21,6 +21,7 @@ import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
 interface VideoRoomProps {
   roomId: string
   onLeave: () => void
+  isGuest?: boolean
 }
 
 // Componente interno que maneja el estado de la llamada
@@ -168,8 +169,8 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
   )
 }
 
-export default function VideoRoom({ roomId, onLeave }: VideoRoomProps) {
-  const { client, loading, error } = useStreamVideoClient()
+export default function VideoRoom({ roomId, onLeave, isGuest = false }: VideoRoomProps) {
+  const { client, loading, error } = useStreamVideoClient(isGuest)
   const [call, setCall] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const [joining, setJoining] = useState(false)
 

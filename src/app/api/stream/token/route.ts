@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { userId } = await request.json()
+    const { userId, isGuest } = await request.json()
 
     if (!userId) {
       return NextResponse.json(
@@ -29,11 +29,14 @@ export async function POST(request: NextRequest) {
       process.env.STREAM_SECRET_KEY
     )
 
-    // Generar token JWT para el usuario con expiración de 1 hora
-    const token = streamClient.createToken(
-      userId,
-      Math.floor(Date.now() / 1000) + 3600 // Expira en 1 hora
-    )
+    // Para invitados, token con expiración más corta (2 horas)
+    // Para empleados, token con expiración estándar (8 horas)
+    const expirationTime = isGuest 
+      ? Math.floor(Date.now() / 1000) + 7200 // 2 horas para invitados
+      : Math.floor(Date.now() / 1000) + 28800 // 8 horas para empleados
+
+    // Generar token JWT para el usuario
+    const token = streamClient.createToken(userId, expirationTime)
 
     return NextResponse.json({ token })
   } catch (error) {

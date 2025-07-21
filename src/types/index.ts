@@ -24,6 +24,7 @@ export interface Meeting {
   duration_minutes: number
   status: 'scheduled' | 'active' | 'completed' | 'cancelled'
   meeting_type: 'internal' | 'external' | 'mixed'
+  room_id: string // ID para Stream.io
   invite_link?: string
   summary?: string
   recording_url?: string

@@ -4,18 +4,13 @@ import { useEffect, useState } from 'react'
 import { StreamVideoClient, User } from '@stream-io/video-react-sdk'
 import { useAuth } from '@/contexts/AuthContext'
 
-export function useStreamVideoClient() {
+export function useStreamVideoClient(isGuest = false) {
   const [client, setClient] = useState<StreamVideoClient | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { employee } = useAuth()
 
   useEffect(() => {
-    if (!employee) {
-      setLoading(false)
-      return
-    }
-
     const setupClient = async () => {
       try {
         setLoading(true)
@@ -26,14 +21,37 @@ export function useStreamVideoClient() {
           throw new Error('NEXT_PUBLIC_STREAM_API_KEY no está configurado')
         }
 
-        // Crear usuario para Stream.io
-        const user: User = {
-          id: employee.cedula,
-          name: `${employee.first_name} ${employee.last_name}`,
-          // Podemos agregar imagen después si tenemos avatares
-          custom: {
-            email: employee.email || '',
-            department: employee.department || '',
+        let user: User
+        let userId: string
+
+        if (isGuest) {
+          // Para invitados, usar información desde localStorage
+          const guestName = localStorage.getItem('guest_name') || 'Invitado'
+          userId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          
+          user = {
+            id: userId,
+            name: guestName,
+            custom: {
+              type: 'guest',
+            }
+          }
+        } else {
+          // Para empleados autenticados
+          if (!employee) {
+            setLoading(false)
+            return
+          }
+
+          userId = employee.cedula
+          user = {
+            id: userId,
+            name: `${employee.first_name} ${employee.last_name}`,
+            custom: {
+              email: employee.email || '',
+              department: employee.department || '',
+              type: 'employee',
+            }
           }
         }
 
@@ -47,7 +65,7 @@ export function useStreamVideoClient() {
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ userId: employee.cedula }),
+              body: JSON.stringify({ userId, isGuest }),
             })
 
             if (!response.ok) {
@@ -85,7 +103,7 @@ export function useStreamVideoClient() {
     }
 
     setupClient()
-  }, [employee])
+  }, [employee, isGuest])
 
   // Cleanup cuando el componente se desmonta
   useEffect(() => {
