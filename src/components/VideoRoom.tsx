@@ -15,8 +15,9 @@ import '@stream-io/video-react-sdk/dist/css/styles.css'
 import '@/styles/video-controls.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Video, AlertCircle, Copy, Users } from 'lucide-react'
+import { Loader2, Video, AlertCircle, Copy, Users, FileText } from 'lucide-react'
 import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
+import LiveTranscription from '@/components/LiveTranscription'
 
 interface VideoRoomProps {
   roomId: string
@@ -30,6 +31,8 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
     useCallCallingState, 
     useParticipants,
   } = useCallStateHooks()
+  
+  const [showTranscription, setShowTranscription] = useState(false)
   
   const callingState = useCallCallingState()
   const participants = useParticipants()
@@ -143,9 +146,31 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
                   {participants.length} {participants.length === 1 ? 'participante' : 'participantes'}
                 </span>
               </div>
+              <Button
+                onClick={() => setShowTranscription(!showTranscription)}
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                  showTranscription 
+                    ? 'bg-blue-500/30 text-blue-300 border-blue-400/30' 
+                    : 'bg-white/10 text-white/80 border-white/30'
+                } hover:bg-white/20`}
+              >
+                <FileText className="w-4 h-4" />
+                <span className="text-sm">Transcripción</span>
+              </Button>
             </div>
           </div>
         </div>
+
+        {/* Panel de Transcripción */}
+        {showTranscription && (
+          <div className="px-4 mt-4">
+            <LiveTranscription 
+              roomId={roomId} 
+            />
+          </div>
+        )}
       </div>
     )
   }

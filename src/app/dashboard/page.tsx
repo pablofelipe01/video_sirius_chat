@@ -233,14 +233,6 @@ export default function Dashboard() {
     return colors[status as keyof typeof colors] || colors.scheduled
   }
 
-  const handleQuickMeeting = () => {
-    // Generar un ID único para la reunión rápida
-    const meetingId = `quick-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    
-    // Redirigir a la página de video con el ID generado
-    router.push(`/video-room/${meetingId}`)
-  }
-
   const handleJoinMeeting = () => {
     if (joinRoomId.trim()) {
       router.push(`/video-room/${joinRoomId.trim()}`)
@@ -376,16 +368,6 @@ export default function Dashboard() {
             <Plus className="w-4 h-4" />
             <span className="sm:hidden">Nueva</span>
             <span className="hidden sm:inline">Nueva Reunión</span>
-          </Button>
-
-          {/* Botón para reunión rápida */}
-          <Button 
-            onClick={handleQuickMeeting}
-            className="flex items-center gap-2 bg-blue-500/80 hover:bg-blue-600/80 text-white shadow-lg w-full sm:w-auto backdrop-blur-md"
-          >
-            <Video className="w-4 h-4" />
-            <span className="sm:hidden">Reunión</span>
-            <span className="hidden sm:inline">Reunión Rápida</span>
           </Button>
 
           {/* Botón para unirse a reunión */}

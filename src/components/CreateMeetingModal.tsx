@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Calendar, Users } from 'lucide-react'
+import { Calendar, Users, Zap } from 'lucide-react'
 import { Employee } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@supabase/supabase-js'
@@ -136,6 +136,19 @@ export default function CreateMeetingModal({ isOpen, onClose, onSuccess }: Creat
     )
   }
 
+  const handleQuickMeeting = () => {
+    const now = new Date()
+    const today = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const currentTime = now.toTimeString().slice(0, 5) // HH:MM
+    
+    setTitle('Reunión Rápida')
+    setDescription('Reunión iniciada inmediatamente')
+    setScheduledDate(today)
+    setScheduledTime(currentTime)
+    setDuration(30) // 30 minutos por defecto para reuniones rápidas
+    setSelectedParticipants([]) // Sin participantes por defecto
+  }
+
   const filteredEmployees = employees.filter(emp => 
     emp.cedula !== employee?.cedula && // Excluir al creador
     (emp.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,10 +162,21 @@ export default function CreateMeetingModal({ isOpen, onClose, onSuccess }: Creat
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Programar Nueva Reunión
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Programar Nueva Reunión
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleQuickMeeting}
+              className="flex items-center gap-2 text-sm"
+            >
+              <Zap className="w-4 h-4" />
+              Reunión Rápida
+            </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">

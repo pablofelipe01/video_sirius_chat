@@ -62,9 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         first_name: data.first_name,
         last_name: data.last_name,
         department: data.department,
+        email: data.email || '',
+        phone: data.phone || '',
+        avatar_url: data.avatar_url || '',
         is_active: data.is_active,
-        created_at: '',
-        updated_at: ''
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || ''
       }
 
       // Guardar en localStorage

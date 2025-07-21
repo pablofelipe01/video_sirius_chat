@@ -17,19 +17,33 @@ export interface Employee {
 export interface Meeting {
   id: string
   title: string
-  description?: string
-  meeting_id: string // ID único para ZegoCloud
-  host_cedula: string
-  scheduled_at?: string
+  description: string
+  scheduled_at: string
   duration_minutes: number
   status: 'scheduled' | 'active' | 'completed' | 'cancelled'
-  meeting_type: 'internal' | 'external' | 'mixed'
-  room_id: string // ID para Stream.io
-  invite_link?: string
-  summary?: string
-  recording_url?: string
+  host_cedula: string
+  room_id: string
+  meeting_id: string
+  meeting_type: string
   created_at: string
   updated_at: string
+}
+
+export interface MeetingTranscription {
+  id: string
+  meeting_id: string
+  assembly_id?: string
+  transcript_text?: string
+  transcript_json?: unknown // AssemblyAI full response
+  status: 'processing' | 'completed' | 'failed'
+  audio_url?: string
+  language_code: string
+  confidence?: number
+  audio_duration?: number
+  word_count?: number
+  created_at: string
+  updated_at: string
+  processed_at?: string
 }
 
 export interface MeetingParticipant {
