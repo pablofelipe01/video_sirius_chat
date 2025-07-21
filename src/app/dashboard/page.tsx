@@ -62,7 +62,11 @@ import {
   Trash2, 
   Copy,
   BarChart3,
-  FileText
+  FileText,
+  Search,
+  Filter,
+  CheckCircle,
+  X
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -74,6 +78,13 @@ export default function Dashboard() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [meetings, setMeetings] = useState<MeetingWithParticipants[]>([])
   const [loadingMeetings, setLoadingMeetings] = useState(true)
+  
+  // Estados para filtros
+  const [showFilters, setShowFilters] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [dateFilter, setDateFilter] = useState<string>('all')
+  const [participantFilter, setParticipantFilter] = useState<string>('')
 
   useEffect(() => {
     if (!loading && !employee) {
@@ -239,6 +250,44 @@ export default function Dashboard() {
     }
   }
 
+  const handleMarkAsCompleted = async (meetingId: string, meetingTitle: string) => {
+    if (!employee) return
+    
+    const confirmComplete = window.confirm(`¿Marcar la reunión "${meetingTitle}" como terminada?`)
+    
+    if (!confirmComplete) return
+
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', meetingId)
+
+      if (error) {
+        console.error('Error updating meeting status:', error)
+        alert('Error al actualizar el estado de la reunión')
+        return
+      }
+
+      // Actualizar la lista local
+      setMeetings(prevMeetings => 
+        prevMeetings.map(meeting => 
+          meeting.id === meetingId 
+            ? { ...meeting, status: 'completed' }
+            : meeting
+        )
+      )
+      
+      alert('Reunión marcada como terminada')
+    } catch (error) {
+      console.error('Error marking meeting as completed:', error)
+      alert('Error inesperado al actualizar la reunión')
+    }
+  }
+
   const handleDeleteMeeting = async (meetingId: string, meetingTitle: string) => {
     if (!employee) return
     
@@ -298,6 +347,49 @@ export default function Dashboard() {
       alert('Error inesperado al eliminar la reunión')
     }
   }
+
+  // Función para filtrar reuniones
+  const filteredMeetings = meetings.filter(meeting => {
+    // Filtro por término de búsqueda
+    const matchesSearch = searchTerm === '' || 
+      meeting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meeting.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meeting.participants.some(p => 
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+
+    // Filtro por estado
+    const matchesStatus = statusFilter === 'all' || meeting.status === statusFilter
+
+    // Filtro por fecha
+    let matchesDate = true
+    if (dateFilter !== 'all') {
+      const meetingDate = new Date(meeting.scheduled_at)
+      const now = new Date()
+      
+      switch (dateFilter) {
+        case 'today':
+          matchesDate = meetingDate.toDateString() === now.toDateString()
+          break
+        case 'week':
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          matchesDate = meetingDate >= weekAgo
+          break
+        case 'month':
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          matchesDate = meetingDate >= monthAgo
+          break
+      }
+    }
+
+    // Filtro por participante
+    const matchesParticipant = participantFilter === '' ||
+      meeting.participants.some(p => 
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(participantFilter.toLowerCase())
+      )
+
+    return matchesSearch && matchesStatus && matchesDate && matchesParticipant
+  })
 
   return (
     <div className="min-h-screen relative">
@@ -381,6 +473,112 @@ export default function Dashboard() {
           </Button>
         </div>
 
+        {/* Filtros para reuniones */}
+        {activeTab === 'meetings' && (
+          <div className="mb-6 space-y-4">
+            {/* Barra de búsqueda y botón de filtros */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Buscar reuniones..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent backdrop-blur-md"
+                  />
+                </div>
+                <Button
+                  onClick={() => setShowFilters(!showFilters)}
+                  variant="outline"
+                  className="flex items-center gap-2 bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-md"
+                >
+                  <Filter className="w-4 h-4" />
+                  Filtros
+                  {(statusFilter !== 'all' || dateFilter !== 'all' || participantFilter !== '') && (
+                    <span className="bg-emerald-500 text-white text-xs rounded-full w-2 h-2"></span>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Contador de resultados */}
+              <div className="text-white/70 text-sm">
+                {filteredMeetings.length} de {meetings.length} reuniones
+              </div>
+            </div>
+
+            {/* Panel de filtros expandible */}
+            {showFilters && (
+              <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Filtro por estado */}
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Estado</label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 backdrop-blur-md"
+                      >
+                        <option value="all" className="bg-slate-800">Todos</option>
+                        <option value="scheduled" className="bg-slate-800">Programadas</option>
+                        <option value="completed" className="bg-slate-800">Terminadas</option>
+                        <option value="cancelled" className="bg-slate-800">Canceladas</option>
+                      </select>
+                    </div>
+
+                    {/* Filtro por fecha */}
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Período</label>
+                      <select
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 backdrop-blur-md"
+                      >
+                        <option value="all" className="bg-slate-800">Todas las fechas</option>
+                        <option value="today" className="bg-slate-800">Hoy</option>
+                        <option value="week" className="bg-slate-800">Última semana</option>
+                        <option value="month" className="bg-slate-800">Último mes</option>
+                      </select>
+                    </div>
+
+                    {/* Filtro por participante */}
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Participante</label>
+                      <input
+                        type="text"
+                        placeholder="Nombre del participante..."
+                        value={participantFilter}
+                        onChange={(e) => setParticipantFilter(e.target.value)}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 backdrop-blur-md"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botón para limpiar filtros */}
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        setSearchTerm('')
+                        setStatusFilter('all')
+                        setDateFilter('all')
+                        setParticipantFilter('')
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-md"
+                    >
+                      <X className="w-4 h-4" />
+                      Limpiar filtros
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+
         {/* Content Area */}
         {activeTab === 'meetings' && (
           <div className="space-y-4">
@@ -391,25 +589,32 @@ export default function Dashboard() {
                   <p className="text-white">Cargando reuniones...</p>
                 </CardContent>
               </Card>
-            ) : meetings.length === 0 ? (
+            ) : filteredMeetings.length === 0 ? (
               <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg">
                 <CardContent className="p-8 text-center">
                   <Video className="w-12 h-12 text-white/60 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-white mb-2">No hay reuniones programadas</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {meetings.length === 0 ? 'No hay reuniones programadas' : 'No se encontraron reuniones'}
+                  </h3>
                   <p className="text-white/80 mb-4">
-                    Crea tu primera reunión para comenzar a colaborar con tu equipo
+                    {meetings.length === 0 
+                      ? 'Crea tu primera reunión para comenzar a colaborar con tu equipo'
+                      : 'Prueba ajustando los filtros de búsqueda'
+                    }
                   </p>
-                  <Button 
-                    onClick={() => setShowCreateModal(true)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Crear Reunión
-                  </Button>
+                  {meetings.length === 0 && (
+                    <Button 
+                      onClick={() => setShowCreateModal(true)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Reunión
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
-              meetings.map((meeting) => (
+              filteredMeetings.map((meeting) => (
               <Card key={meeting.id} className="bg-white/10 backdrop-blur-md border-white/20 shadow-lg hover:bg-white/20 transition-all">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
@@ -492,6 +697,17 @@ export default function Dashboard() {
                         <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                         <span className="hidden lg:inline">Editar</span>
                       </Button>
+                      {meeting.status === 'scheduled' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleMarkAsCompleted(meeting.id, meeting.title)}
+                          className="flex items-center gap-1 bg-green-500/20 text-green-300 border-green-400/30 hover:bg-green-500/30 text-xs sm:text-sm px-2 sm:px-3 backdrop-blur-md"
+                        >
+                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden lg:inline">Terminar</span>
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="outline" 
