@@ -33,9 +33,36 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
   } = useCallStateHooks()
   
   const [showTranscription, setShowTranscription] = useState(false)
+  const [connectionQuality, setConnectionQuality] = useState<'good' | 'fair' | 'poor'>('good')
   
   const callingState = useCallCallingState()
   const participants = useParticipants()
+
+  // Monitor básico de calidad de conexión (simplificado)
+  useEffect(() => {
+    // Monitorear el estado de la conexión de forma básica
+    const interval = setInterval(() => {
+      if (navigator.onLine) {
+        // Si tenemos conexión, verificar si hay participantes activos
+        if (participants.length > 0) {
+          setConnectionQuality('good')
+        }
+      } else {
+        setConnectionQuality('poor')
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [participants])
+
+  const getConnectionIcon = () => {
+    switch (connectionQuality) {
+      case 'good': return '🟢'
+      case 'fair': return '🟡'
+      case 'poor': return '🔴'
+      default: return '⚪'
+    }
+  }
 
   const copyRoomId = () => {
     navigator.clipboard.writeText(roomId)
@@ -114,22 +141,26 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
           </CardHeader>
         </Card>
 
-        {/* Layout de video principal */}
+        {/* Layout de video optimizado y unificado */}
         <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[600px] lg:h-[700px] xl:h-[750px] max-h-[80vh] relative">
-          {/* Usar diferentes layouts según el tamaño de pantalla */}
-          <div className="block sm:hidden h-full">
-            {/* Móvil: SpeakerLayout funciona perfecto */}
-            <SpeakerLayout 
-              participantsBarPosition="bottom"
-              participantsBarLimit={10}
+          {/* Usar SpeakerLayout unificado para mejor estabilidad */}
+          {participants.length <= 2 ? (
+            // Para 1-2 participantes: Layout tipo "cara a cara"
+            <PaginatedGridLayout 
+              groupSize={2}
             />
-          </div>
-          <div className="hidden sm:block h-full">
-            {/* Desktop: PaginatedGridLayout muestra todos los participantes */}
+          ) : participants.length <= 4 ? (
+            // Para 3-4 participantes: Grid pequeño
             <PaginatedGridLayout 
               groupSize={4}
             />
-          </div>
+          ) : (
+            // Para 5+ participantes: Speaker layout con participantes abajo
+            <SpeakerLayout 
+              participantsBarPosition="bottom"
+              participantsBarLimit={6}
+            />
+          )}
         </div>
 
         {/* Controles de llamada usando el componente oficial */}
@@ -138,7 +169,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
             {/* Usar el componente oficial CallControls que maneja todo automáticamente */}
             <CallControls onLeave={onLeave} />
             
-            {/* Información de participantes */}
+            {/* Información de participantes y calidad de conexión */}
             <div className="flex items-center justify-center gap-2 mt-4 sm:mt-2">
               <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg">
                 <Users className="w-4 h-4 text-white/80" />
@@ -146,6 +177,17 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
                   {participants.length} {participants.length === 1 ? 'participante' : 'participantes'}
                 </span>
               </div>
+              
+              {/* Indicador de calidad de conexión */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg">
+                <span className="text-sm">{getConnectionIcon()}</span>
+                <span className="text-white/80 text-sm">
+                  {connectionQuality === 'good' && 'Excelente'}
+                  {connectionQuality === 'fair' && 'Buena'}
+                  {connectionQuality === 'poor' && 'Lenta'}
+                </span>
+              </div>
+              
               <Button
                 onClick={() => setShowTranscription(!showTranscription)}
                 variant="outline"
@@ -208,15 +250,48 @@ export default function VideoRoom({ roomId, onLeave, isGuest = false }: VideoRoo
     const setupCall = async () => {
       try {
         setJoining(true)
-        console.log('Configurando llamada con ID:', roomId)
+        console.log('🚀 Configurando llamada con ID:', roomId)
         
         // Crear la llamada
         currentCall = client.call('default', roomId)
         
-        // Unirse a la llamada (crear si no existe)
-        await currentCall.join({ create: true })
+        // Opciones básicas de unión (sin settings_override problemáticos)
+        const joinOptions = {
+          create: true,
+          data: {
+            // Datos básicos sin created_by_id problemático
+          },
+          // Configuraciones simples de dispositivos locales
+          camera: {
+            enabled: true,
+            facingMode: 'user'
+          },
+          microphone: {
+            enabled: true
+          }
+        }
         
-        console.log('Unido a la llamada exitosamente')
+        // Unirse a la llamada con configuraciones básicas
+        await currentCall.join(joinOptions)
+        
+        // Configurar video y audio DESPUÉS de unirse (más confiable)
+        try {
+          // Habilitar cámara por defecto
+          await currentCall.camera.enable()
+          console.log('✅ Cámara habilitada')
+        } catch (cameraError) {
+          console.warn('⚠️ No se pudo habilitar la cámara:', cameraError)
+        }
+
+        try {
+          // Habilitar micrófono por defecto
+          await currentCall.microphone.enable()
+          console.log('✅ Micrófono habilitado')
+        } catch (micError) {
+          console.warn('⚠️ No se pudo habilitar el micrófono:', micError)
+        }
+        
+        console.log('✅ Unido a la llamada exitosamente')
         setCall(currentCall)
       } catch (err) {
         console.error('Error uniéndose a la llamada:', err)

@@ -55,7 +55,7 @@ export function useStreamVideoClient(isGuest = false) {
           }
         }
 
-        // Crear cliente de Stream Video con token provider para renovación automática
+        // Crear cliente de Stream Video con configuraciones básicas pero efectivas
         const streamClient = new StreamVideoClient({
           apiKey: process.env.NEXT_PUBLIC_STREAM_API_KEY,
           user,
@@ -75,22 +75,46 @@ export function useStreamVideoClient(isGuest = false) {
             const { token } = await response.json()
             return token
           },
-          // Opciones adicionales para debugging en desarrollo
-          options: process.env.NODE_ENV === 'development' ? {
-            logLevel: 'debug',
-            logger: (logLevel, message, ...args) => {
-              console.log(`[Stream ${logLevel}] ${message}`, ...args)
-            }
-          } : undefined
+          // Configuraciones básicas pero estables
+          options: {
+            // Timeout de conexión
+            timeout: 15000, // 15 segundos
+            
+            // Logging según el ambiente
+            ...(process.env.NODE_ENV === 'development' ? {
+              logLevel: 'info',
+              logger: (logLevel: string, message: string, ...args: unknown[]) => {
+                if (logLevel === 'error' || logLevel === 'warn') {
+                  console.log(`[Stream ${logLevel}] ${message}`, ...args)
+                }
+              }
+            } : {
+              logLevel: 'error' // Solo errores en producción
+            })
+          }
         })
 
-        // Manejar eventos de conexión
+        // Manejar eventos de conexión y calidad de red
         streamClient.on('connection.changed', (event) => {
           if (event.online) {
-            console.log('Reconectado a Stream')
+            console.log('✅ Reconectado a Stream Video')
           } else {
-            console.log('Desconectado de Stream')
+            console.log('⚠️ Desconectado de Stream Video')
           }
+        })
+
+        // Manejar eventos de calidad de conexión
+        streamClient.on('connection.ok', () => {
+          console.log('🔵 Conexión estable')
+        })
+
+        streamClient.on('connection.recovered', () => {
+          console.log('🟢 Conexión recuperada')
+        })
+
+        // Manejar errores de conexión
+        streamClient.on('connection.error', (error) => {
+          console.error('🔴 Error de conexión:', error)
         })
 
         setClient(streamClient)
