@@ -363,3 +363,4 @@ Asegúrate de configurar en tu plataforma de deploy:
 **Desarrollado con ❤️ usando Next.js 15, TypeScript, Supabase y Stream.io**
 
 **Estado del Proyecto**: ✅ **En Producción** - Totalmente funcional en https://video-sirius-chat.vercel.app
+Cambio temporal para un commit
