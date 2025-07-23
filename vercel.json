@@ -1,12 +1,10 @@
 {
   "functions": {
-    "src/app/api/transcription/upload/route.ts": {
-      "maxDuration": 60
-    }
-  },
-  "api": {
-    "bodyParser": {
-      "sizeLimit": "10mb"
+    "src/app/api/transcription/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/meetings/[meetingId]/transcription/route.ts": {
+      "maxDuration": 30
     }
   }
 }
