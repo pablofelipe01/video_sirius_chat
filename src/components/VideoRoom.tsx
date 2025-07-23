@@ -15,7 +15,7 @@ import '@stream-io/video-react-sdk/dist/css/styles.css'
 import '@/styles/video-controls.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Video, AlertCircle, Copy, Users, FileText } from 'lucide-react'
+import { Loader2, Video, AlertCircle, Copy, Users, FileText, Monitor } from 'lucide-react'
 import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
 import { StreamTranscription } from '@/components/StreamTranscription'
 
@@ -30,6 +30,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
   const { 
     useCallCallingState, 
     useParticipants,
+    useHasOngoingScreenShare,
   } = useCallStateHooks()
   
   const [showTranscription, setShowTranscription] = useState(false)
@@ -37,6 +38,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
   
   const callingState = useCallCallingState()
   const participants = useParticipants()
+  const hasScreenShare = useHasOngoingScreenShare()
 
   // Monitor básico de calidad de conexión (simplificado)
   useEffect(() => {
@@ -122,9 +124,15 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
                 </span>
               </CardTitle>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                <div className="text-white/80 text-sm">
+                <div className="text-white/80 text-sm flex items-center gap-2">
                   <span className="hidden sm:inline">ID: </span>
                   <span className="font-mono">{roomId}</span>
+                  {hasScreenShare && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">
+                      <Monitor className="w-3 h-3" />
+                      Pantalla compartida
+                    </span>
+                  )}
                 </div>
                 <Button
                   onClick={copyRoomId}
@@ -143,8 +151,13 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
 
         {/* Layout de video optimizado y unificado */}
         <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl h-[400px] sm:h-[600px] lg:h-[700px] xl:h-[750px] max-h-[80vh] relative">
-          {/* Usar SpeakerLayout unificado para mejor estabilidad */}
-          {participants.length <= 2 ? (
+          {/* Si hay screen sharing activo, usar SpeakerLayout optimizado para pantalla compartida */}
+          {hasScreenShare ? (
+            <SpeakerLayout 
+              participantsBarPosition="right"
+              participantsBarLimit={4}
+            />
+          ) : participants.length <= 2 ? (
             // Para 1-2 participantes: Layout tipo "cara a cara"
             <PaginatedGridLayout 
               groupSize={2}
