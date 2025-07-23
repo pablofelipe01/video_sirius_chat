@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Meeting } from '@/types'
 import DashboardHeader from '@/components/DashboardHeader'
 import CreateMeetingModal from '@/components/CreateMeetingModal'
+import { TranscriptionViewer } from '@/components/TranscriptionViewer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@supabase/supabase-js'
@@ -27,6 +28,28 @@ interface MeetingWithParticipants extends Meeting {
 }
 
 // Tipos para los datos que vienen de Supabase
+interface MeetingTranscription {
+  id: string
+  meeting_id: string
+  audio_url: string
+  transcript_text: string
+  status: string
+  language_code: string
+  confidence: number
+  audio_duration: number
+  word_count: number
+  processed_at: string
+  created_at: string
+  updated_at: string
+  assemblyai_id?: string
+}
+
+interface SelectedMeetingTranscription {
+  meetingId: string
+  meetingTitle: string 
+  transcription: MeetingTranscription | null
+  error?: string
+}
 interface SupabaseMeetingParticipant {
   participant_cedula: string
   employees: {
@@ -78,6 +101,9 @@ export default function Dashboard() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [meetings, setMeetings] = useState<MeetingWithParticipants[]>([])
   const [loadingMeetings, setLoadingMeetings] = useState(true)
+  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false)
+  const [selectedMeetingTranscription, setSelectedMeetingTranscription] = useState<SelectedMeetingTranscription | null>(null)
+  const [loadingTranscription, setLoadingTranscription] = useState(false)
   
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false)
@@ -285,6 +311,77 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error marking meeting as completed:', error)
       alert('Error inesperado al actualizar la reunión')
+    }
+  }
+
+  const handleViewTranscription = async (meetingId: string, meetingTitle: string) => {
+    console.log('🔍 Buscando transcripción para meeting:', meetingId, meetingTitle)
+    
+    // Agregar log para debug - ver los datos de la reunión
+    const { data: meetingData } = await supabase
+      .from('meetings')
+      .select('id, meeting_id, room_id, title')
+      .eq('id', meetingId)
+      .single()
+    
+    console.log('📋 Datos de la reunión:', meetingData)
+    
+    setLoadingTranscription(true)
+    setShowTranscriptionModal(true)
+    setSelectedMeetingTranscription({ meetingId, meetingTitle, transcription: null })
+
+    try {
+      // Buscar transcripción de la reunión usando la API
+      console.log('🔎 Buscando transcripción con meeting_id:', meetingId)
+      
+      const response = await fetch(`/api/meetings/${meetingId}/transcription`)
+      const result = await response.json()
+      
+      console.log('📊 Resultado búsqueda transcripción:', result.transcription ? 'Encontrada' : 'No encontrada')
+
+      if (!response.ok) {
+        console.error('❌ Error fetching transcription:', result.error)
+        setSelectedMeetingTranscription({ 
+          meetingId, 
+          meetingTitle, 
+          transcription: null,
+          error: 'Error al cargar la transcripción'
+        })
+        return
+      }
+
+      const transcription = result.transcription
+
+      if (!transcription) {
+        console.log('❌ No se encontró transcripción para esta reunión')
+        setSelectedMeetingTranscription({ 
+          meetingId, 
+          meetingTitle, 
+          transcription: null,
+          error: 'No hay transcripción disponible para esta reunión. La transcripción se genera automáticamente cuando se utiliza la función de Stream.io durante la videollamada.'
+        })
+        return
+      }
+
+      console.log('✅ Transcripción encontrada:', transcription)
+      console.log('📝 Contenido transcript_text:', transcription.transcript_text?.substring(0, 100) + '...')
+      
+      setSelectedMeetingTranscription({ 
+        meetingId, 
+        meetingTitle, 
+        transcription: transcription
+      })
+
+    } catch (error) {
+      console.error('❌ Error loading transcription:', error)
+      setSelectedMeetingTranscription({ 
+        meetingId, 
+        meetingTitle, 
+        transcription: null,
+        error: 'Error inesperado al cargar la transcripción'
+      })
+    } finally {
+      setLoadingTranscription(false)
     }
   }
 
@@ -711,6 +808,15 @@ export default function Dashboard() {
                       <Button 
                         size="sm" 
                         variant="outline" 
+                        onClick={() => handleViewTranscription(meeting.id, meeting.title)}
+                        className="flex items-center gap-1 bg-blue-500/20 text-blue-300 border-blue-400/30 hover:bg-blue-500/30 text-xs sm:text-sm px-2 sm:px-3 backdrop-blur-md"
+                      >
+                        <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="hidden lg:inline">Transcripción</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
                         onClick={() => handleDeleteMeeting(meeting.id, meeting.title)}
                         className="flex items-center gap-1 bg-red-500/20 text-red-300 border-red-400/30 hover:bg-red-500/30 text-xs sm:text-sm px-2 sm:px-3 backdrop-blur-md"
                       >
@@ -958,6 +1064,89 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Modal de Transcripción */}
+      {showTranscriptionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] mx-4 bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+              <div>
+                <h3 className="text-xl font-bold">Transcripción de la Reunión</h3>
+                <p className="text-blue-100">{selectedMeetingTranscription?.meetingTitle}</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  setShowTranscriptionModal(false)
+                  setSelectedMeetingTranscription(null)
+                }}
+                variant="outline"
+                size="sm"
+                className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {loadingTranscription ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-600">Cargando transcripción...</p>
+                  </div>
+                </div>
+              ) : selectedMeetingTranscription?.error ? (
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-800 mb-2">No disponible</h4>
+                  <p className="text-gray-600">{selectedMeetingTranscription.error}</p>
+                </div>
+              ) : selectedMeetingTranscription?.transcription ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <h4 className="font-medium text-blue-800">Información de la transcripción</h4>
+                    </div>
+                    <div className="text-sm text-blue-700 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <p><strong>Estado:</strong> {selectedMeetingTranscription.transcription?.status === 'completed' ? 'Completada' : 'En proceso'}</p>
+                      <p><strong>Idioma:</strong> {selectedMeetingTranscription.transcription?.language_code === 'es' ? 'Español' : 'Otro'}</p>
+                      <p><strong>Fuente:</strong> Stream.io (Nativo)</p>
+                      <p><strong>Creada:</strong> {selectedMeetingTranscription.transcription?.created_at ? new Date(selectedMeetingTranscription.transcription.created_at).toLocaleString() : 'N/A'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Usar el nuevo componente TranscriptionViewer */}
+                  <TranscriptionViewer 
+                    transcriptionContent={selectedMeetingTranscription.transcription?.transcript_text || ''}
+                    filename={`transcripcion_${selectedMeetingTranscription.meetingId}.jsonl`}
+                    audioUrl={selectedMeetingTranscription.transcription?.audio_url}
+                  />
+                  
+                  {selectedMeetingTranscription.transcription?.audio_url && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => window.open(selectedMeetingTranscription.transcription!.audio_url, '_blank')}
+                        className="bg-blue-500 hover:bg-blue-600 text-white"
+                        size="sm"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Ver archivo original
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-800 mb-2">Sin transcripción</h4>
+                  <p className="text-gray-600">Esta reunión no tiene transcripción disponible</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

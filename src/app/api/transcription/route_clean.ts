@@ -18,91 +18,39 @@ export async function POST(request: NextRequest) {
       transcriptionContent, 
       filename, 
       startTime, 
-      endTime,
-      userCedula // ✅ Obtener la cédula del usuario
+      endTime 
     } = body
 
     console.log('💾 Guardando transcripción Stream.io:', filename)
-    console.log('👤 Usuario que inició transcripción:', userCedula)
-    console.log('🔗 CallCid recibido:', callCid)
-    console.log('📋 Datos completos del body:', { 
-      callCid, 
-      transcriptionUrl: transcriptionUrl?.substring(0, 50) + '...', 
-      filename, 
-      startTime, 
-      endTime,
-      userCedula 
-    })
-
-    // Usar la cédula del usuario como host, con fallback si no se proporciona
-    let hostCedula = userCedula;
-    
-    if (!hostCedula) {
-      // Fallback: buscar un empleado activo
-      const { data: firstEmployee } = await supabase
-        .from('employees')
-        .select('cedula')
-        .eq('is_active', true)
-        .limit(1)
-        .single()
-      
-      hostCedula = firstEmployee?.cedula || '1234567890';
-      console.log('⚠️ No se proporcionó userCedula, usando fallback:', hostCedula)
-    }
 
     // Buscar o crear meeting basado en callCid
     let meetingId = null
     
-    // El callCid viene como: "room-1753276621426-1vsfa707q"
-    // Y el room_id en la base de datos también es: "room-1753276621426-1vsfa707q"
-    // Así que NO necesitamos modificar el callCid, se usa tal como viene
-    const roomIdFromCall = callCid;
+    // Intentar encontrar meeting por room_id (extraer de callCid)
+    const roomId = callCid?.split('-')[0]?.replace('default_room-', '') || callCid
     
-    console.log('🔍 Buscando reunión existente con roomIdFromCall:', roomIdFromCall)
-    console.log('🔍 CallCid original:', callCid)
-    
-    // Primero intentar buscar por meeting_id (que es el room_id de la reunión original)
-    console.log('🔎 Búsqueda 1: Por meeting_id =', roomIdFromCall)
-    const { data: existingMeeting, error: meetingError1 } = await supabase
+    const { data: existingMeeting } = await supabase
       .from('meetings')
-      .select('id, title, description, meeting_id, room_id')
-      .eq('meeting_id', roomIdFromCall)
+      .select('id')
+      .eq('room_id', roomId)
       .single()
-    
-    console.log('📊 Resultado búsqueda 1:', existingMeeting, meetingError1?.code)
 
-    // Si no se encuentra por meeting_id, buscar por room_id
-    let meetingToUse = existingMeeting
-    if (!meetingToUse) {
-      console.log('🔎 Búsqueda 2: Por room_id =', roomIdFromCall)
-      const { data: meetingByRoomId, error: meetingError2 } = await supabase
-        .from('meetings')
-        .select('id, title, description, meeting_id, room_id')
-        .eq('room_id', roomIdFromCall)
-        .single()
-      
-      console.log('📊 Resultado búsqueda 2:', meetingByRoomId, meetingError2?.code)
-      meetingToUse = meetingByRoomId
-    }
-
-    if (meetingToUse) {
-      console.log('✅ Encontrada reunión existente:', meetingToUse.title)
-      meetingId = meetingToUse.id
+    if (existingMeeting) {
+      meetingId = existingMeeting.id
     } else {
-      console.log('⚠️ No se encontró reunión existente, creando nueva')
-      // Crear meeting para la transcripción (como fallback)
+      // Crear meeting para la transcripción
       const { data: newMeeting, error: meetingError } = await supabase
         .from('meetings')
         .insert({
-          title: `Reunión ${roomIdFromCall}`,
+          title: `Reunión ${roomId}`,
           description: 'Reunión con transcripción Stream.io',
-          room_id: roomIdFromCall,
-          meeting_id: roomIdFromCall,
+          room_id: roomId,
+          meeting_id: roomId,
           status: 'completed',
           scheduled_at: startTime,
           duration_minutes: Math.ceil((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000),
-          host_cedula: hostCedula, // ✅ Usar la cédula del usuario que inició la transcripción
-          meeting_type: 'internal'
+          host_cedula: 'system',
+          meeting_type: 'video'
         })
         .select()
         .single()
@@ -122,6 +70,7 @@ export async function POST(request: NextRequest) {
       transcript_text: transcriptionContent,
       status: 'completed',
       language_code: 'es',
+      stream_filename: filename, // Nuevo campo para Stream.io
       confidence: 0.95, // Stream.io tiene alta precisión
       audio_duration: Math.ceil((new Date(endTime).getTime() - new Date(startTime).getTime()) / 1000),
       word_count: transcriptionContent ? transcriptionContent.split(' ').length : 0,

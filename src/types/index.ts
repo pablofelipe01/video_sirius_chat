@@ -32,9 +32,8 @@ export interface Meeting {
 export interface MeetingTranscription {
   id: string
   meeting_id: string
-  assembly_id?: string
+  stream_filename?: string // Nombre del archivo de Stream.io
   transcript_text?: string
-  transcript_json?: unknown // AssemblyAI full response
   status: 'processing' | 'completed' | 'failed'
   audio_url?: string
   language_code: string

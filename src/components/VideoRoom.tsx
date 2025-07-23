@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Video, AlertCircle, Copy, Users, FileText } from 'lucide-react'
 import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
-import LiveTranscription from '@/components/LiveTranscription'
+import { StreamTranscription } from '@/components/StreamTranscription'
 
 interface VideoRoomProps {
   roomId: string
@@ -199,7 +199,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
                 } hover:bg-white/20`}
               >
                 <FileText className="w-4 h-4" />
-                <span className="text-sm">Transcripción</span>
+                <span className="text-sm">Stream.io AI</span>
               </Button>
             </div>
           </div>
@@ -208,9 +208,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
         {/* Panel de Transcripción */}
         {showTranscription && (
           <div className="px-4 mt-4">
-            <LiveTranscription 
-              roomId={roomId} 
-            />
+            <StreamTranscription roomId={roomId} />
           </div>
         )}
       </div>
