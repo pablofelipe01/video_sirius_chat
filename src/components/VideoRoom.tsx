@@ -1,6 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import '@stream-io/video-react-sdk/dist/css/styles.css'
+import '@/styles/video-controls.css'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Loader2, Video, AlertCircle, Copy, Users, FileText, Monitor, MessageCircle } from 'lucide-react'
+import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
+import { StreamTranscription } from '@/components/StreamTranscription'
+import { SuperChat } from '@/components/SuperChat'
 import { 
   StreamVideo, 
   StreamCall,
@@ -11,13 +19,6 @@ import {
   CallingState,
   useCallStateHooks,
 } from '@stream-io/video-react-sdk'
-import '@stream-io/video-react-sdk/dist/css/styles.css'
-import '@/styles/video-controls.css'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Video, AlertCircle, Copy, Users, FileText, Monitor } from 'lucide-react'
-import { useStreamVideoClient } from '@/hooks/useStreamVideoClient'
-import { StreamTranscription } from '@/components/StreamTranscription'
 
 interface VideoRoomProps {
   roomId: string
@@ -34,6 +35,7 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
   } = useCallStateHooks()
   
   const [showTranscription, setShowTranscription] = useState(false)
+  const [showChat, setShowChat] = useState(false)
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'fair' | 'poor'>('good')
   
   const callingState = useCallCallingState()
@@ -214,6 +216,20 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
                 <FileText className="w-4 h-4" />
                 <span className="text-sm">Stream.io AI</span>
               </Button>
+              
+              <Button
+                onClick={() => setShowChat(!showChat)}
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                  showChat 
+                    ? 'bg-green-500/30 text-green-300 border-green-400/30' 
+                    : 'bg-white/10 text-white/80 border-white/30'
+                } hover:bg-white/20`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="text-sm">SuperChat</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -224,6 +240,14 @@ function CallInterface({ onLeave, roomId }: { onLeave: () => void; roomId: strin
             <StreamTranscription roomId={roomId} />
           </div>
         )}
+
+        {/* SuperChat Component */}
+        <SuperChat
+          roomId={roomId}
+          isOpen={showChat}
+          onToggle={() => setShowChat(!showChat)}
+          onClose={() => setShowChat(false)}
+        />
       </div>
     )
   }

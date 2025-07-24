@@ -49,6 +49,56 @@ export interface MeetingParticipant {
   id: string
   meeting_id: string
   participant_cedula?: string
+  participant_name?: string
+  participant_email?: string
+  participant_type: 'internal' | 'external'
+  joined_at?: string
+  left_at?: string
+  duration_minutes?: number
+  is_invited: boolean
+  invitation_sent_at?: string
+}
+
+// Nuevos tipos para SuperChat
+export interface ChatMessageReply {
+  sender_name: string
+  message_text: string
+}
+
+export interface ChatMessageMetadata {
+  reply_to?: ChatMessageReply
+  [key: string]: unknown
+}
+
+export interface ChatMessage {
+  id: string
+  meeting_id?: string
+  room_id: string
+  sender_cedula?: string
+  sender_name: string
+  sender_type: 'internal' | 'external' | 'system'
+  message_text: string
+  message_type: 'text' | 'system' | 'reaction' | 'file' | 'join' | 'leave'
+  reply_to_id?: string
+  metadata: ChatMessageMetadata
+  is_edited: boolean
+  edited_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatUser {
+  cedula?: string
+  name: string
+  type: 'internal' | 'external' | 'system'
+  avatar_url?: string
+  is_online?: boolean
+}
+
+export interface MeetingParticipant {
+  id: string
+  meeting_id: string
+  participant_cedula?: string
   participant_name?: string // Para participantes externos
   participant_email?: string
   participant_type: 'internal' | 'external'
