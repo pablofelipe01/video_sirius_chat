@@ -52,11 +52,40 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
   // Load chat messages when component mounts or roomId changes
   useEffect(() => {
     if (!roomId) return
+    
+    console.log('🚀 Iniciando SuperChat para room:', roomId)
     loadChatMessages()
     
-    // Set up real-time subscription
+    // Debug de Supabase realtime
+    const debugRealtime = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('🔐 Sesión activa:', !!session)
+        console.log('🎫 Access token presente:', !!session?.access_token)
+        
+        // Test básico de conexión
+        const { data: testData, error: testError } = await supabase
+          .from('chat_messages')
+          .select('count(*)')
+          .eq('room_id', roomId)
+        
+        console.log('📊 Test de conexión DB:', { data: testData, error: testError })
+      } catch (error) {
+        console.error('❌ Error en debug realtime:', error)
+      }
+    }
+    
+    debugRealtime()
+    
+    // Set up real-time subscription con manejo de errores mejorado
     const subscription = supabase
-      .channel(`chat_${roomId}`)
+      .channel(`chat_room_${roomId}`, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: roomId },
+          private: false
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -67,43 +96,91 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
         },
         (payload) => {
           console.log('💬 Real-time chat update:', payload)
+          console.log('📊 Event type:', payload.eventType)
+          // Fix TypeScript error by properly typing the payload
+          const newRecord = payload.new as ChatMessage | null
+          const oldRecord = payload.old as ChatMessage | null
+          console.log('📊 Room ID del mensaje:', newRecord?.room_id || oldRecord?.room_id)
           
-          if (payload.eventType === 'INSERT') {
-            const newMessage = payload.new as ChatMessage
-            console.log('🔔 Nuevo mensaje recibido via realtime:', newMessage.message_text)
-            setMessages(prev => {
-              // Verificar que no existe ya el mensaje para evitar duplicados
-              const messageExists = prev.some(msg => msg.id === newMessage.id)
-              if (messageExists) {
-                console.log('⚠️ Mensaje duplicado ignorado:', newMessage.id)
-                return prev
-              }
-              console.log('✅ Agregando mensaje al estado:', newMessage.id)
-              return [...prev, newMessage]
-            })
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMessage = payload.new as ChatMessage
-            console.log('📝 Mensaje actualizado via realtime:', updatedMessage.id)
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === updatedMessage.id ? updatedMessage : msg
+          try {
+            if (payload.eventType === 'INSERT') {
+              const newMessage = payload.new as ChatMessage
+              console.log('🔔 Nuevo mensaje recibido via realtime:', newMessage.message_text)
+              console.log('👤 Enviado por:', newMessage.sender_name, 'Cedula:', newMessage.sender_cedula)
+              console.log('🆔 ID del mensaje:', newMessage.id)
+              console.log('🔍 ¿Es mi mensaje?:', newMessage.sender_cedula === employee?.cedula)
+              
+              setMessages(prev => {
+                console.log('📝 Estado actual de mensajes:', prev.length)
+                console.log('📝 IDs actuales:', prev.map(m => m.id))
+                
+                // Verificar que no existe ya el mensaje para evitar duplicados
+                const messageExists = prev.some(msg => msg.id === newMessage.id)
+                console.log('🔍 ¿Mensaje ya existe?:', messageExists)
+                
+                if (messageExists) {
+                  console.log('⚠️ Mensaje duplicado ignorado:', newMessage.id)
+                  return prev
+                }
+                
+                // IMPORTANTE: Solo agregar si NO es mi propio mensaje
+                // Los mensajes propios ya se agregan inmediatamente en sendMessage()
+                if (newMessage.sender_cedula === employee?.cedula) {
+                  console.log('⚠️ Es mi propio mensaje, ignorando para evitar duplicado')
+                  return prev
+                }
+                
+                console.log('✅ Agregando mensaje del interlocutor al estado:', newMessage.id)
+                const newState = [...prev, newMessage]
+                console.log('📝 Nuevo estado de mensajes:', newState.length)
+                return newState
+              })
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedMessage = payload.new as ChatMessage
+              console.log('📝 Mensaje actualizado via realtime:', updatedMessage.id)
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === updatedMessage.id ? updatedMessage : msg
+                )
               )
-            )
-          } else if (payload.eventType === 'DELETE') {
-            const deletedMessage = payload.old as ChatMessage
-            console.log('🗑️ Mensaje eliminado via realtime:', deletedMessage.id)
-            setMessages(prev => 
-              prev.filter(msg => msg.id !== deletedMessage.id)
-            )
+            } else if (payload.eventType === 'DELETE') {
+              const deletedMessage = payload.old as ChatMessage
+              console.log('🗑️ Mensaje eliminado via realtime:', deletedMessage.id)
+              setMessages(prev => 
+                prev.filter(msg => msg.id !== deletedMessage.id)
+              )
+            }
+          } catch (error) {
+            console.error('❌ Error procesando mensaje realtime:', error)
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('📡 Estado de suscripción realtime:', status)
+        if (err) {
+          console.error('❌ Error detallado en suscripción realtime:', err)
+        }
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscripción realtime activa para room:', roomId)
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en canal realtime para room:', roomId)
+          // Intentar reconectar después de un delay
+          setTimeout(() => {
+            console.log('🔄 Intentando reconectar realtime...')
+            subscription.unsubscribe()
+            // El useEffect se ejecutará de nuevo y creará una nueva suscripción
+          }, 5000)
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ Timeout en suscripción realtime para room:', roomId)
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Canal realtime cerrado para room:', roomId)
+        }
       })
 
     // Send join message
     if (employee) {
+      console.log('👋 Enviando mensaje de unión para:', employee.first_name, employee.last_name)
       sendSystemMessage(`${employee.first_name} ${employee.last_name} se unió al chat`, 'join')
     }
 
@@ -147,6 +224,8 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
     setIsLoading(true)
     try {
       console.log('📤 Enviando mensaje:', newMessage.trim())
+      console.log('👤 Usuario enviando:', employee.first_name, employee.last_name, 'Cedula:', employee.cedula)
+      console.log('🏠 Room ID:', roomId)
       
       // Get meeting ID from room
       const { data: meeting } = await supabase
@@ -154,6 +233,8 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
         .select('id')
         .eq('room_id', roomId)
         .single()
+
+      console.log('🎯 Meeting encontrado:', meeting?.id)
 
       const messageData = {
         room_id: roomId,
@@ -173,6 +254,8 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
         is_edited: false
       }
 
+      console.log('📦 Datos del mensaje a enviar:', messageData)
+
       const { data, error } = await supabase
         .from('chat_messages')
         .insert([messageData])
@@ -183,19 +266,21 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
         return
       }
 
-      console.log('✅ Mensaje enviado exitosamente:', data)
+      console.log('✅ Mensaje enviado exitosamente a Supabase:', data)
       
-      // Agregar el mensaje inmediatamente al estado local
-      if (data && data[0]) {
-        setMessages(prev => {
-          // Verificar que no existe ya el mensaje para evitar duplicados
-          const messageExists = prev.some(msg => msg.id === data[0].id)
-          if (messageExists) {
-            return prev
-          }
-          return [...prev, data[0]]
-        })
-      }
+      // REMOVER ESTA PARTE - No agregar inmediatamente, dejar que llegue via realtime
+    //   if (data && data[0]) {
+    //     console.log('🔄 Agregando mensaje inmediatamente al estado local')
+    //     setMessages(prev => {
+    //       const messageExists = prev.some(msg => msg.id === data[0].id)
+    //       if (messageExists) {
+    //         console.log('⚠️ Mensaje ya existe en estado local')
+    //         return prev
+    //       }
+    //       console.log('✅ Mensaje agregado al estado local inmediatamente')
+    //       return [...prev, data[0]]
+    //     })
+    //   }
       
       setNewMessage('')
       setReplyingTo(null)
@@ -364,6 +449,18 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
             <Users className="w-4 h-4" />
             {messages.filter(m => m.message_type === 'join').length}
           </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 w-8 p-0 hover:bg-blue-700 text-white border-blue-300"
+            onClick={() => {
+              console.log('🔄 Recargando mensajes manualmente...')
+              loadChatMessages()
+            }}
+            title="Recargar mensajes"
+          >
+            <Reply className="w-4 h-4" />
+          </Button>
           <Button
             size="sm"
             variant="outline"
