@@ -268,19 +268,19 @@ export function SuperChat({ roomId, isOpen, onToggle, onClose }: SuperChatProps)
 
       console.log('✅ Mensaje enviado exitosamente a Supabase:', data)
       
-      // REMOVER ESTA PARTE - No agregar inmediatamente, dejar que llegue via realtime
-    //   if (data && data[0]) {
-    //     console.log('🔄 Agregando mensaje inmediatamente al estado local')
-    //     setMessages(prev => {
-    //       const messageExists = prev.some(msg => msg.id === data[0].id)
-    //       if (messageExists) {
-    //         console.log('⚠️ Mensaje ya existe en estado local')
-    //         return prev
-    //       }
-    //       console.log('✅ Mensaje agregado al estado local inmediatamente')
-    //       return [...prev, data[0]]
-    //     })
-    //   }
+      // REACTIVAR: Agregar inmediatamente mis propios mensajes
+      if (data && data[0]) {
+        console.log('🔄 Agregando mi mensaje inmediatamente al estado local')
+        setMessages(prev => {
+          const messageExists = prev.some(msg => msg.id === data[0].id)
+          if (messageExists) {
+            console.log('⚠️ Mi mensaje ya existe en estado local')
+            return prev
+          }
+          console.log('✅ Mi mensaje agregado al estado local inmediatamente')
+          return [...prev, data[0]]
+        })
+      }
       
       setNewMessage('')
       setReplyingTo(null)
